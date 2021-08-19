@@ -53,9 +53,11 @@ app.post("/api/shorturl", (req, res) => {
       original_url: baseDomain,
     };
 
+    // Pushing baseDomain for easier protocol add
+
     links.push(urlEntry);
 
-    res.json(urlEntry);
+    res.json({ original_url: url, short_url: urlEntry.short_url });
   });
 });
 
