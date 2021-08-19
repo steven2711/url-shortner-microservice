@@ -2,6 +2,7 @@ require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const dns = require("dns");
+const URL = require("url");
 const app = express();
 
 // Basic Configuration
@@ -23,10 +24,7 @@ app.get("/", function (req, res) {
 app.get("/api/shorturl/:id", (req, res) => {
   if (links[req.params.id]) {
     const domain = links[req.params.id].original_url;
-
-    // Looks like redirects need a protocol
-
-    res.redirect(`https://${domain}`);
+    res.redirect(domain);
   } else {
     res.json({ msg: "No url at this route" });
   }
@@ -35,29 +33,30 @@ app.get("/api/shorturl/:id", (req, res) => {
 app.post("/api/shorturl", (req, res) => {
   const { url } = req.body;
 
-  // dns.lookup throws an error with any urls with protocols or slashes. Remove both with replace
+  // Parse url
+  const { protocol, slashes, hostname } = URL.parse(url);
 
-  const REMOVE_PROTOCOL = /^https?:\/\//i;
+  // Check if it matches requested format
+  if (!protocol || !slashes || !hostname) {
+    return res.json({ error: "invalid url" });
+  }
 
-  const noProtocolUrl = url.replace(REMOVE_PROTOCOL, "");
-  const baseDomain = noProtocolUrl.replace("/", "");
-
-  dns.lookup(baseDomain, (err, address, family) => {
+  // dns:lookup() needs url without protocols. Hostname works.
+  dns.lookup(hostname, (err, address, family) => {
     if (!address) {
       console.error(err);
       return res.json({ error: "invalid url" });
     }
 
+    // Response object
     const urlEntry = {
       short_url: links.length,
-      original_url: baseDomain,
+      original_url: url,
     };
-
-    // Pushing baseDomain for easier protocol add
 
     links.push(urlEntry);
 
-    res.json({ original_url: url, short_url: urlEntry.short_url });
+    res.json(urlEntry);
   });
 });
 
